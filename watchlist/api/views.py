@@ -1,8 +1,3 @@
-from ast import Is
-from distutils.file_util import move_file
-from watchlist.models import WatchList,StreamPlatform,Review
-from rest_framework.response import Response
-from watchlist.api.serializers import WatchListSerializer,StreamPlatformSerializer,ReviewSerializer
 from rest_framework.decorators import api_view
 from rest_framework import status
 from rest_framework.views import APIView
@@ -10,8 +5,16 @@ from rest_framework import generics,mixins
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from distutils.file_util import move_file
+from watchlist.models import WatchList,StreamPlatform,Review
+from watchlist.api.serializers import WatchListSerializer,StreamPlatformSerializer,ReviewSerializer
 from watchlist.api.permissions import AdminReadOnly
+from watchlist.api.paginations import ReviewPagination,MovieListPagination
+
 
 
 class CreateReview(generics.CreateAPIView):
@@ -35,15 +38,25 @@ class CreateReview(generics.CreateAPIView):
         serializer.save(movie=watchlist,user=review_user)
 class ReviewUser(generics.ListAPIView):
     serializer_class=ReviewSerializer
-    permission_classes=[IsAuthenticated]
     queryset=Review.objects.all()
-    def get_queryset(self):
-        pk=self.kwargs['pk']
-        return Review.objects.filter(user__username=pk)
-   
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['user__username', 'active']
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['user__username', 'rating']
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['user__username', 'rating']
+    ordering=['rating']
+    # permission_classes=[IsAuthenticated]
+    # def get_queryset(self):
+    #     pk=self.kwargs['pk']
+    #     return Review.objects.filter(user__username=pk)
+    # def get_queryset(self):
+    #    username=self.request.query_params.get('username',None)
+    #    return Review.objects.filter(user__username=username)
 class ReviewList(generics.ListAPIView):
     serializer_class=ReviewSerializer
-    permission_classes=[IsAuthenticated]
+    # permission_classes=[IsAuthenticated]
+    pagination_class=ReviewPagination
     queryset=Review.objects.all()
     # def get_queryset(self):
     #     pk=self.kwargs['pk']
@@ -52,14 +65,14 @@ class ReviewDetail(generics.UpdateAPIView,generics.DestroyAPIView,generics.Retri
     queryset=Review.objects.all()
     serializer_class=ReviewSerializer
 
-class Review_list(mixins.ListModelMixin,mixins.CreateModelMixin,generics.GenericAPIView):
-    queryset=Review.objects.all()
-    serializer_class=ReviewSerializer
-    permission_classes=[IsAuthenticated]
-    def get(self,request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-    def post(self,request, *args, **kwargs):
-        return self.create(request,*args,**kwargs)
+# class Review_list(mixins.ListModelMixin,mixins.CreateModelMixin,generics.GenericAPIView):
+#     queryset=Review.objects.all()
+#     serializer_class=ReviewSerializer
+#     permission_classes=[IsAuthenticated]
+#     def get(self,request, *args, **kwargs):
+#         return self.list(request, *args, **kwargs)
+#     def post(self,request, *args, **kwargs):
+#         return self.create(request,*args,**kwargs)
 # class Review_detail(mixins.RetrieveModelMixin,mixins.UpdateModelMixin,generics.GenericAPIView):
 #     queryset=Review.objects.all()
 #     serializer_class=ReviewSerializer
@@ -69,6 +82,11 @@ class Review_list(mixins.ListModelMixin,mixins.CreateModelMixin,generics.Generic
 #         return self.update(request, *args, **kwargs)
     
 
+class WatchList(generics.ListAPIView):
+    serializer_class = WatchListSerializer
+    queryset=WatchList.objects.all()
+    pagination_class=MovieListPagination
+    
 class WatchListAV(APIView):
     def get(self,request):
         data=WatchList.objects.all()
